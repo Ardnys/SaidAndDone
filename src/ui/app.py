@@ -1,6 +1,7 @@
 import questionary
 
 from rich.console import Console
+from rich.markdown import Markdown
 
 from src.audio.recorder import RecordingManager
 from src.events.handler import KeyboardListener
@@ -67,7 +68,8 @@ class App:
                     }
                 )
 
-                self.console.print(response["answer"], style="yellow")
+                md_response = Markdown(response["answer"])
+                self.console.print(md_response, style="yellow")
                 self.console.print("Press Esc to exit.", style="bold red")
                 break
             elif choice == "Play recording":
@@ -93,7 +95,8 @@ class App:
                 response = graph.invoke(
                     {"entry_point": "generate_only", "md_store": self.md_store}
                 )
-                self.console.print(response["answer"], style="yellow")
+                md_response = Markdown(response["answer"])
+                self.console.print(md_response, style="yellow")
             elif choice == "Exit":
                 self.console.print("Press Esc to exit.", style="bold red")
                 return

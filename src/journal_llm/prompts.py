@@ -96,7 +96,7 @@ Be mindful of the day of the week. For example, if they worked a lot on weekdays
 
 Give helpful feedback for the next day, remind them of their neglected activities, with the previous journal entries and next day in mind.
 
-Return ONLY the helpful feedback.
+Return ONLY the helpful feedback with markdown formatting.
 
 Next day:
 {next_day}
@@ -107,3 +107,5 @@ Advice for tomorrow:"""
 feedback_generation_prompt_template = PromptTemplate.from_template(
     feedback_generation_system_message
 )
+
+# TODO: need a message for today

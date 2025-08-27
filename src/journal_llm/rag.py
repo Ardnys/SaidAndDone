@@ -139,6 +139,7 @@ graph_builder.add_node(generate)
 
 graph_builder.add_edge("extraction", "save_and_pull_docs")
 graph_builder.add_edge("save_and_pull_docs", "generate")
+graph_builder.add_edge("pull_recent_docs", "generate")
 graph_builder.add_edge("generate", END)
 
 graph_builder.add_conditional_edges(
