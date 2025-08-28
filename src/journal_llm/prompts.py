@@ -88,7 +88,7 @@ markdown_prompt_template = ChatPromptTemplate.from_messages(
     ]
 )
 
-feedback_generation_system_message = """You are a helpful assistant that reminds users of their daily and long-running tasks.
+tomorrow_feedback_system_message = """You are a helpful assistant that reminds users of their daily and long-running tasks.
 Based on the user's journal on the last few days, analyze their entries for missing and neglected activities or ongoing projects.
 For example, they might have been spending time out too much, playing too much video games, or neglecting exercise or studying.
 Or they worked on a programming project for 2 days but suddenly quit without saying anything.
@@ -104,8 +104,29 @@ Journal entries:
 {context}
 Advice for tomorrow:"""
 
-feedback_generation_prompt_template = PromptTemplate.from_template(
-    feedback_generation_system_message
+tomorrow_feedback_prompt_template = PromptTemplate.from_template(
+    tomorrow_feedback_system_message
 )
 
-# TODO: need a message for today
+today_feedback_system_message = """You are a helpful assistant that reminds users of their daily and long-running tasks.
+Based on the user's journal on the last few days, analyze their entries for missing and neglected activities or ongoing projects.
+For example, they might have been spending time out too much, playing too much video games, or neglecting exercise or studying.
+Or they worked on a programming project for 2 days but suddenly quit without saying anything.
+Watching movies / anime and cooking are not essential everyday. They can be neglected for a few day and should be reminded once a week.
+Chores should be more regular so they shouldn't be neglected more than 3 days.
+
+Be mindful of the day of the week. For example, if they worked a lot on weekdays cut them some slack on weekends.
+
+Give them a reminder of their neglected activities, with the previous journal entries in mind.
+
+Return ONLY the reminder with markdown formatting.
+
+Today:
+{today}
+Journal entries:
+{context}
+Advice for today:"""
+
+today_feedback_prompt_template = PromptTemplate.from_template(
+    today_feedback_system_message
+)

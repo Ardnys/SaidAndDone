@@ -6,12 +6,13 @@ from langgraph.graph import START, StateGraph, END
 
 from src.journal_llm.schema import DailyThings
 from src.storage import MarkdownStorage
-from src.storage.common import tomorrow_header_str
+from src.storage.common import today_header_str, tomorrow_header_str
 from .common import vector_store, stt_model, structured_llm, llm
 from .prompts import (
     extraction_prompt_template,
     markdown_prompt_template,
-    feedback_generation_prompt_template,
+    tomorrow_feedback_prompt_template,
+    today_feedback_prompt_template
 )
 
 headers_to_split_on = [
@@ -93,11 +94,21 @@ def save_and_pull_docs(state: State):
     return {"past_docs": docs}
 
 
-def generate(state: State):
+def generate_tomorrow(state: State):
     docs_content = "\n\n".join(doc.page_content for doc in state["past_docs"])
     tomorrow = tomorrow_header_str()
-    messages = feedback_generation_prompt_template.invoke(
+    messages = tomorrow_feedback_prompt_template.invoke(
         {"context": docs_content, "next_day": tomorrow}
+    )
+    # TODO: inject day of the week here so this dingus doesn't yell at me on weekends
+    response = llm.invoke(messages)
+    return {"answer": response.content}
+
+def generate_today(state: State):
+    docs_content = "\n\n".join(doc.page_content for doc in state["past_docs"])
+    today = today_header_str()
+    messages = today_feedback_prompt_template.invoke(
+        {"context": docs_content, "today": today}
     )
     # TODO: inject day of the week here so this dingus doesn't yell at me on weekends
     response = llm.invoke(messages)
@@ -108,7 +119,7 @@ def pull_recent_docs(state: State):
     md_store = state["md_store"]
 
     # pull recent entries
-    files = md_store.get_recent_files(5)
+    files = md_store.get_recent_files(7)
     docs = load_markdown_files(files)
     return {"past_docs": docs}
 
@@ -135,12 +146,14 @@ graph_builder.add_node(speech_to_text)
 graph_builder.add_node(extraction)
 graph_builder.add_node(save_and_pull_docs)
 graph_builder.add_node(pull_recent_docs)
-graph_builder.add_node(generate)
+graph_builder.add_node(generate_today)
+graph_builder.add_node(generate_tomorrow)
 
 graph_builder.add_edge("extraction", "save_and_pull_docs")
-graph_builder.add_edge("save_and_pull_docs", "generate")
-graph_builder.add_edge("pull_recent_docs", "generate")
-graph_builder.add_edge("generate", END)
+graph_builder.add_edge("save_and_pull_docs", "generate_tomorrow")
+graph_builder.add_edge("pull_recent_docs", "generate_today")
+graph_builder.add_edge("generate_today", END)
+graph_builder.add_edge("generate_tomorrow", END)
 
 graph_builder.add_conditional_edges(
     "speech_to_text", should_continue_after_stt, {"continue": "extraction", "end": END}
