@@ -88,26 +88,6 @@ markdown_prompt_template = ChatPromptTemplate.from_messages(
     ]
 )
 
-tomorrow_feedback_system_message = """You are a helpful assistant that reminds users of their daily and long-running tasks.
-Based on the user's journal on the last few days, analyze their entries for missing and neglected activities or ongoing projects.
-For example, they might have been spending time out too much, playing too much video games, or neglecting exercise or studying.
-Or they worked on a programming project for 2 days but suddenly quit without saying anything.
-Be mindful of the day of the week. For example, if they worked a lot on weekdays cut them some slack on weekends.
-
-Give helpful feedback for the next day, remind them of their neglected activities, with the previous journal entries and next day in mind.
-
-Return ONLY the helpful feedback with markdown formatting.
-
-Next day:
-{next_day}
-Journal entries:
-{context}
-Advice for tomorrow:"""
-
-tomorrow_feedback_prompt_template = PromptTemplate.from_template(
-    tomorrow_feedback_system_message
-)
-
 today_feedback_system_message = """You are a helpful assistant that reminds users of their daily and long-running tasks.
 Based on the user's journal on the last few days, analyze their entries for missing and neglected activities or ongoing projects.
 For example, they might have been spending time out too much, playing too much video games, or neglecting exercise or studying.
@@ -119,7 +99,7 @@ Be mindful of the day of the week. For example, if they worked a lot on weekdays
 
 Give them a reminder of their neglected activities, with the previous journal entries in mind.
 
-Return ONLY the reminder with markdown formatting.
+Return ONLY the JSON array with JSON objects containing titles and reminders.
 
 Today:
 {today}

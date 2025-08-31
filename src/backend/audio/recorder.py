@@ -33,7 +33,7 @@ class RecordingManager:
     """
 
     def __init__(self):
-        self.mic_recorder = MicRecorder(samplerate=41800, channels=1)
+        self.mic_recorder = MicRecorder(samplerate=44100, channels=1)
         self.playback = None
         self.recorded_filename = None
 

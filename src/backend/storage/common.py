@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from pathlib import Path
 from typing import Tuple
 
@@ -22,12 +22,8 @@ def get_storage_paths() -> Tuple[Path, Path]:
     return (json_dir, markdown_dir)
 
 
-def today_file_str() -> str:
-    return datetime.today().strftime("%Y-%m-%d")
-
-
-def today_header_str() -> str:
-    return datetime.today().strftime("%d %B, %A")
+def date_as_header(date: date) -> str:
+    return date.strftime("%d %B, %A")
 
 
 def tomorrow_header_str() -> str:

@@ -1,18 +1,20 @@
+import datetime
 from typing import List, Literal, TypedDict
+import uuid
 from langchain_community.document_loaders import TextLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, StateGraph, END
+from langgraph.types import interrupt
 
-from src.journal_llm.schema import DailyThings
-from src.storage import MarkdownStorage
-from src.storage.common import today_header_str, tomorrow_header_str
-from .common import vector_store, stt_model, structured_llm, llm
+from src.backend.journal_llm.schema import DailyThings
+from src.backend.storage.common import date_as_header
+from .common import vector_store, structured_llm, llm, md_store
 from .prompts import (
     extraction_prompt_template,
     markdown_prompt_template,
-    tomorrow_feedback_prompt_template,
-    today_feedback_prompt_template
+    today_feedback_prompt_template,
 )
 
 headers_to_split_on = [
@@ -47,26 +49,18 @@ def split_markdown_files(file_content):
 
 class State(TypedDict):
     # state
-    md_store: MarkdownStorage
-    audio_file: str
     transcription: str
+    date: datetime.date | None
     extracted_information: DailyThings
+    content: str
+    num_previous_entries: int | None
     past_docs: List[Document]
     answer: str
     # flags for extra control
-    transcribe_only: bool
     entry_point: Literal["full", "generate_only"]
 
 
 # === nodes ===
-
-
-def speech_to_text(state: State):
-    result = stt_model.transcribe(state["audio_file"])
-    print(f"You said: {result["text"]}")
-    return {"transcription": result["text"]}
-
-
 def extraction(state: State):
     prompt = extraction_prompt_template.invoke({"text": state["transcription"]})
     daily_things = structured_llm.invoke(prompt)
@@ -75,7 +69,20 @@ def extraction(state: State):
     return {"extracted_information": daily_things}
 
 
-def save_and_pull_docs(state: State):
+# TODO: if more human interaction is needed
+# https://langchain-ai.github.io/langgraph/how-tos/human_in_the_loop/add-human-in-the-loop/#review-and-edit-state
+# def extraction_human_review(state: State):
+#     result = interrupt({
+#         "task": "Please review and edit the extracted information if necessary.",
+#         "extraction": state["extracted_information"]
+#     })
+
+#     return {
+#         "extracted_information": result["edited_extraction"]
+#     }
+
+
+def create_journal_entry(state: State):
     # generate markdown journal entry
     info_json = state["extracted_information"].model_dump_json()
     prompt = markdown_prompt_template.invoke(
@@ -83,30 +90,30 @@ def save_and_pull_docs(state: State):
     )
     markdown = llm.invoke(prompt)
 
-    # TODO: I can save one extra read and write here but too complicated rn
-    # save to disk
-    md_store = state["md_store"]
-    md_store.save(markdown.content)
-
-    # pull recent entries
-    files = md_store.get_recent_files(5)
-    docs = load_markdown_files(files)
-    return {"past_docs": docs}
+    return {"content": markdown.content}
 
 
-def generate_tomorrow(state: State):
-    docs_content = "\n\n".join(doc.page_content for doc in state["past_docs"])
-    tomorrow = tomorrow_header_str()
-    messages = tomorrow_feedback_prompt_template.invoke(
-        {"context": docs_content, "next_day": tomorrow}
+def human_review_journal_entry(state: State):
+    result = interrupt(
+        {
+            "task": "Please review and edit the markdown entry if necessary.",
+            "generated_content": state["content"],
+        }
     )
-    # TODO: inject day of the week here so this dingus doesn't yell at me on weekends
-    response = llm.invoke(messages)
-    return {"answer": response.content}
+
+    return {"content": result["edited_content"]}
+
+
+def save_journal_entry(state: State):
+    content = state["content"]
+    date = state["date"]
+
+    md_store.save(content, date)
+
 
 def generate_today(state: State):
     docs_content = "\n\n".join(doc.page_content for doc in state["past_docs"])
-    today = today_header_str()
+    today = date_as_header(datetime.date.today())
     messages = today_feedback_prompt_template.invoke(
         {"context": docs_content, "today": today}
     )
@@ -116,53 +123,45 @@ def generate_today(state: State):
 
 
 def pull_recent_docs(state: State):
-    md_store = state["md_store"]
-
     # pull recent entries
-    files = md_store.get_recent_files(7)
+    files = md_store.get_recent_files(state["num_previous_entries"])
     docs = load_markdown_files(files)
     return {"past_docs": docs}
 
 
 # === conditional edges ===
-
-
-def should_continue_after_stt(state: State):
-    if state["transcribe_only"]:
-        return "end"
-    else:
-        return "continue"
-
-
 def select_entry_point(state: State):
     if state["entry_point"] == "generate_only":
         return "pull_recent_docs"
-    return "speech_to_text"
+    return "extraction"
 
 
 graph_builder = StateGraph(State)
 
-graph_builder.add_node(speech_to_text)
 graph_builder.add_node(extraction)
-graph_builder.add_node(save_and_pull_docs)
+graph_builder.add_node(create_journal_entry)
+graph_builder.add_node(human_review_journal_entry)
+graph_builder.add_node(save_journal_entry)
 graph_builder.add_node(pull_recent_docs)
 graph_builder.add_node(generate_today)
-graph_builder.add_node(generate_tomorrow)
 
-graph_builder.add_edge("extraction", "save_and_pull_docs")
-graph_builder.add_edge("save_and_pull_docs", "generate_tomorrow")
+graph_builder.add_edge("extraction", "create_journal_entry")
+graph_builder.add_edge("create_journal_entry", "human_review_journal_entry")
+graph_builder.add_edge("human_review_journal_entry", "save_journal_entry")
 graph_builder.add_edge("pull_recent_docs", "generate_today")
+graph_builder.add_edge("create_journal_entry", END)
 graph_builder.add_edge("generate_today", END)
-graph_builder.add_edge("generate_tomorrow", END)
 
-graph_builder.add_conditional_edges(
-    "speech_to_text", should_continue_after_stt, {"continue": "extraction", "end": END}
-)
+# TODO: tbh generation could be a separate graph. they have nothing in common
 graph_builder.add_conditional_edges(
     START,
     select_entry_point,
-    {"speech_to_text": "speech_to_text", "pull_recent_docs": "pull_recent_docs"},
+    {"extraction": "extraction", "pull_recent_docs": "pull_recent_docs"},
 )
 
+# in-memory checkpoint for interrupt support
+checkpointer = InMemorySaver()
 
-graph = graph_builder.compile()
+graph = graph_builder.compile(checkpointer=checkpointer)
+
+config = {"configurable": {"thread_id": uuid.uuid4()}}

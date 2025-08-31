@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 load_dotenv()
-from src.ui.app import App, graph
+from backend.ui.app import App
 
 
 def main():
