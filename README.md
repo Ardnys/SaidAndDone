@@ -1,109 +1,135 @@
 # Said And Done
 
-A voice-controlled AI journaling assistant that helps you maintain a daily journal and provides personalized insights.
+A voice-powered AI journaling assistant with a modern web interface. Record your daily activities through voice or text, get them transcribed, and receive AI-powered insights about your routines.
+
+> ⚠️ **Note**: This project is currently under active development. Some features may be incomplete or subject to change.
+
+![Said And Done Logo](images/said_and_done_logo.png)
 
 ## Features
 
-- 🎙️ Voice recording and playback
+- 🎙️ In-browser voice recording
 - 🗣️ Automatic speech-to-text transcription using Whisper
-- 📝 Smart extraction of daily activities into structured data
-- 📊 Markdown and JSON storage formats
-- 🤖 AI-powered feedback and suggestions based on recent entries
-- 🎮 Interactive CLI interface with rich text formatting
+- 📝 AI-powered analysis of daily activities
+- ✏️ Rich markdown editor for manual entry refinement
+- 🤖 Smart suggestions for daily planning based on past entries
+- 🌐 Modern React-based web interface
+- 🔄 Step-by-step journal entry workflow
+- 📊 Entry history and insights viewer
 
-## Requirements
+## Prerequisites
 
 - Python 3.12+
-- SoundDevice for audio recording
-- Whisper for speech recognition
-- LangChain with Google Generative AI for LLM features
-- Rich for terminal UI
-- Questionary for interactive prompts
+- Node.js 18+ and npm
+- PyTorch (see installation notes)
+- Google Generative AI API key
 
 ## Installation
 
-1. Clone the repository
-2. Create a virtual environment:
+1. **Clone the repository**
+
+```sh
+git clone https://github.com/yourusername/SaidAndDone.git
+cd SaidAndDone
+```
+
+2. **Backend Setup**
+   The pytorch version in the `requirements.txt` matches my GPU and might not match yours.
+   This might not work. I'll update it soon I promise.
 
 ```sh
 python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
 .venv\Scripts\activate  # Windows
-```
-
-3. Install dependencies:
-
-```sh
 pip install -r requirements.txt
 ```
 
-## Usage
-
-Run the main application:
+3. **Frontend Setup**
 
 ```sh
-python main.py
+cd frontend
+npm install
 ```
 
-The CLI interface provides the following options:
+4. **Environment Configuration**
+   Set `GOOGLE_API_KEY` environment variable.
 
-- **Record**: Start a voice recording for your journal entry
-- **Play recording**: Play back your last recording
-- **Create journal entry**: Generate a formatted journal entry from your recording
-- **What should I do today**: Get AI-powered suggestions based on recent entries
-- **Exit**: Close the application
+Linux:
+
+```sh
+export GOOGLE_API_KEY=your_api_key_here
+```
+
+Windows CMD:
+
+```cmd
+set GOOGLE_API_KEY=your_api_key_here
+```
+
+## Development
+
+1. **Start the Backend Server**
+
+```sh
+fastapi dev src/backend/api/api.py
+```
+
+2. **Start the Frontend Development Server**
+
+```sh
+cd frontend
+npm run dev
+```
+
+The application will be available at:
+
+- Frontend: `http://localhost:5173`
+- Backend API Swagger UI: `http://localhost:8000/docs`
 
 ## Project Structure
 
-- `src/audio/`: Audio recording and playback functionality
-- `src/events/`: Keyboard event handling
-- `src/journal_llm/`: LLM integration for text processing and suggestions
-- `src/storage/`: Journal entry storage in Markdown and JSON formats
-- `src/ui/`: CLI interface and app controllers
-- `entries/`: Storage location for journal entries
-  - `markdown/`: Human-readable formatted entries
-  - `json/`: Structured data storage
+- frontend: React application built with Vite
 
-## Features in Detail
+  - `src/components/`: React components organized by feature
+  - `src/router/`: Application routing
+  - `src/store.ts`: Global state management
 
-### Journal Entries
+- backend: Python backend services
+  - `api/`: FastAPI endpoints and payload definitions
+  - `audio/`: Voice recording processing
+  - `journal_llm/`: AI integration for text analysis
+  - `storage/`: Data persistence layer
 
-Each journal entry captures:
+## Planned Features
 
-- Wake up time
-- Mood
-- Physical activities
-- Programming work
-- Studies
-- Social activities
-- Entertainment (gaming, movies, etc.)
-- Household activities (cooking, chores)
-
-### AI Analysis
-
-The system analyzes your recent entries to:
-
-- Track activity patterns
-- Identify neglected areas
-- Provide personalized suggestions
-- Consider weekday vs weekend patterns
-
-## Roadmap
-
-This project is in a nice place now. I'll update it as I use it and maybe tackle the features with time or as I need them.
-
-- [x] MVP
-- [ ] Configuration
-- [ ] SQLite database (or something else) for structured storage
-- [ ] Fancy audio controls and visuals
-- [ ] More AI customization, like which activities should be prioritized etc.
-- [ ] Weekly / monthly reports
-- [ ] An actual chatbot or something more interactive
+- [ ] Friendlier home screen
+- [ ] Journal page
+- [ ] Celery for backend
+- [ ] Fixing UI layouts lol
+- [ ] Adding tiptap editor
+- [ ] Checking out whisper's output
+- [ ] Better recording & transcription UI
+- [ ] Database for journal entries
+- [ ] Weekly/monthly activity analytics
+- [ ] Stream the generation maybe?
+- [ ] Chatbot
+- [ ] Generate prompts and extraction schema from configuration.
+- [ ] Mobile-responsive design
+- [ ] Other LLM stuff as I discover more
 
 ## Contributing
 
-Issues and pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+This project is in active development. Issues and pull requests are welcome, but please note that the architecture and features are still evolving.
+
+## Troubleshooting
+
+- If you encounter PyTorch-related issues, ensure you've installed the correct version for your system from [pytorch.org](https://pytorch.org)
+- For audio recording issues, check your browser's microphone permissions
+- Make sure your Google API key has access to the Generative AI services
 
 ## License
 
-[MIT](LICENSE)
+MIT
+
+---
+
+For the latest updates and documentation, please check back regularly as this project is actively being developed.
