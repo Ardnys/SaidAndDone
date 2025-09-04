@@ -17,6 +17,8 @@ interface JournalState {
 	transcription: string;
 	markdown: string;
 	task: string;
+	date: string | null;
+	setDate: (date: string | null) => void;
 	setStep: (step: Step) => void;
 	setAudioBlob: (blob: Blob) => void;
 	setTranscription: (transcription: string) => void;
@@ -35,6 +37,8 @@ export const useJournalStore = create<JournalState>((set, get) => ({
 	transcription: "",
 	markdown: "",
 	task: "",
+	date: new Date().toISOString(),
+	setDate: (date) => set({ date }),
 	setTask: (task) => set({ task }),
 	setStep: (step) => set({ step }),
 	setAudioBlob: (blob) => set({ audioBlob: blob }),

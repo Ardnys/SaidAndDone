@@ -94,6 +94,7 @@ The application will be available at:
   - `src/store.ts`: Global state management
 
 - backend: Python backend services
+
   - `api/`: FastAPI endpoints and payload definitions
   - `audio/`: Voice recording processing
   - `journal_llm/`: AI integration for text analysis
@@ -101,11 +102,12 @@ The application will be available at:
 
 ## Planned Features
 
+- [x] Calendar
 - [ ] Friendlier home screen
 - [ ] Journal page
 - [ ] Celery for backend
 - [ ] Fixing UI layouts lol
-- [ ] Adding tiptap editor
+- [ ] Adding MDX editor
 - [ ] Checking out whisper's output
 - [ ] Better recording & transcription UI
 - [ ] Database for journal entries

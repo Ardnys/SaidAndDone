@@ -41,7 +41,11 @@ const getIconForTitle = (title: string) => {
 		return <IconMovie size="1rem" />;
 	if (lowerCaseTitle.includes("out")) return <IconSun size="1rem" />;
 	if (lowerCaseTitle.includes("chores")) return <IconHome size="1rem" />;
-	if (lowerCaseTitle.includes("program") || lowerCaseTitle.includes("code"))
+	if (
+		lowerCaseTitle.includes("program") ||
+		lowerCaseTitle.includes("code") ||
+		lowerCaseTitle.includes("project")
+	)
 		return <IconCode size="1rem" />;
 	return <IconCheck size="1rem" />;
 };
@@ -165,7 +169,7 @@ function Plan() {
 					{plan.length > 0 && (
 						<Card shadow="sm" padding="lg" radius="md" withBorder>
 							<Title order={3} mb="lg">
-								Your Recommended Plan
+								Your Recommended Plan for Today
 							</Title>
 							{/* 4. Update the Timeline to render the new data structure */}
 							<Timeline active={-1} bulletSize={32} lineWidth={2}>

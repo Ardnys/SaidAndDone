@@ -18,12 +18,12 @@ import {
 import { IconSearch, IconNotesOff } from "@tabler/icons-react";
 import axios from "axios";
 
-type ApiEntry = {
+export type ApiEntry = {
 	date: string;
 	markdownContent: string;
 };
 
-type JournalEntry = {
+export type JournalEntry = {
 	date: Date;
 	markdownContent: string;
 };

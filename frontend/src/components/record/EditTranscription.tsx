@@ -4,15 +4,22 @@ import axios from "axios";
 import { Textarea, Button, Stack, Title, Group } from "@mantine/core";
 
 export function EditTranscriptionStep() {
-	const { transcription, setMarkdown, setTask, setStep, nextStep, prevStep } =
-		useJournalStore();
+	const {
+		date,
+		transcription,
+		setMarkdown,
+		setTask,
+		setStep,
+		nextStep,
+		prevStep,
+	} = useJournalStore();
 	const [editedTranscription, setEditedTranscription] = useState(transcription);
 
 	const handleGenerateEntry = async () => {
 		setStep("GENERATING_MARKDOWN");
 		try {
 			const payload = {
-				date: new Date().toISOString().split("T")[0], // format as YYYY-MM-DD
+				date: date?.split("T")[0], // format as YYYY-MM-DD
 				transcription: editedTranscription,
 			};
 			const response = await axios.post("/api/generate_entry", payload);

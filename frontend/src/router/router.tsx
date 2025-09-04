@@ -26,6 +26,12 @@ export const router = createBrowserRouter([
 				path: "/journal",
 				element: <Entries />,
 			},
+			// {
+			// 	path: "/journal/:id"
+			// }
+			// {
+			// 	path: "/editor",
+			// }
 		],
 	},
 ]);
