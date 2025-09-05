@@ -48,7 +48,7 @@ async def transcribe(file: UploadFile):
         wav_output_path = temp_audio_path + ".wav"
         audio_segment.export(wav_output_path, format="wav")
 
-        result = stt_model.transcribe(wav_output_path)
+        result = stt_model.transcribe(wav_output_path, decode_options={"fp16": False}) # fp16 doesn't work on CPU. set this to true in GPU
         transcription = result["text"]
 
     finally:
