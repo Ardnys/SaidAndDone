@@ -56,6 +56,7 @@ class State(TypedDict):
     num_previous_entries: int | None
     past_docs: List[Document]
     answer: str
+    filename: str
     # flags for extra control
     entry_point: Literal["full", "generate_only"]
 
@@ -108,7 +109,15 @@ def save_journal_entry(state: State):
     content = state["content"]
     date = state["date"]
 
-    md_store.save(content, date)
+    filename = md_store.save(content, date)
+
+    return {
+        "transcription": state["transcription"],
+        "date": state["date"],
+        "extracted_information": state["extracted_information"],
+        "content": state['content'],  
+        "filename": filename
+        }
 
 
 def generate_today(state: State):

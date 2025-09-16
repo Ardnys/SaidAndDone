@@ -25,7 +25,8 @@ class MarkdownStorage:
         with open(filename, "a", encoding="utf-8") as f:
             f.writelines(file_contents)
 
-        return filename
+        # not sure about this one
+        return filename.name
 
     def get_recent_files(self, n: int):
         files = list(self.path.glob("*.md"))
