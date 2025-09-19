@@ -49,7 +49,7 @@ function Entries() {
 	const fetchJournalEntries = async () => {
 		try {
 			// TODO: make this with pagination
-			const url = `/api/entries_range?start=0&end=10`;
+			const url = `/api/entries_range?limit=10&offset=0`;
 
 			const response = await axios.get<ApiEntry[]>(url);
 

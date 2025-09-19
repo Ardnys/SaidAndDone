@@ -1,16 +1,22 @@
 import dayjs from "dayjs";
 import { useJournalStore } from "../../store";
 import { DatePickerInput, type DatePickerProps } from "@mantine/dates";
-import { Indicator } from "@mantine/core";
-import { useEffect, useState } from "react";
+import { Indicator, Loader } from "@mantine/core";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
-import type { ApiEntry } from "../journal/Entries";
 
 const JournalDatePicker = () => {
+	// 1. The store's state and setter, which use `string | null`, can now be used directly.
 	const { date, setDate } = useJournalStore();
+
 	const [daysWithJournals, setDaysWithJournals] = useState<Set<string>>(
 		new Set()
 	);
+
+	// 2. The state for the calendar's VIEW still uses a Date object for reliable calculations.
+	const [displayedMonth, setDisplayedMonth] = useState(date ? date : null);
+
+	const [isLoading, setIsLoading] = useState(false);
 
 	const dayRenderer: DatePickerProps["renderDay"] = (date) => {
 		const dayOfMonth = dayjs(date).date();
@@ -30,16 +36,18 @@ const JournalDatePicker = () => {
 		);
 	};
 
-	const fetchEntryDates = async () => {
+	const fetchEntryDatesForMonth = useCallback(async (month: string) => {
+		setIsLoading(true);
 		try {
-			const url = `/api/entries_range?start=0&end=10`;
-			const response = await axios.get<ApiEntry[]>(url);
+			const startOfMonth = dayjs(month).startOf("month").format("YYYY-MM-DD");
+			const endOfMonth = dayjs(month).endOf("month").format("YYYY-MM-DD");
 
-			const journalDays: string[] = response.data.map((item) => {
-				return item.date;
-			});
+			const url = `/api/entries_by_date_range?start=${startOfMonth}&end=${endOfMonth}`;
+			const response = await axios.get<string[]>(url);
 
-			setDaysWithJournals(new Set(journalDays));
+			setDaysWithJournals(
+				(prevDays) => new Set([...prevDays, ...response.data])
+			);
 		} catch (error) {
 			if (axios.isAxiosError(error)) {
 				console.error(
@@ -49,15 +57,31 @@ const JournalDatePicker = () => {
 			} else {
 				console.error("An unexpected error occurred:", error);
 			}
+		} finally {
+			setIsLoading(false);
 		}
-	};
-
-	useEffect(() => {
-		fetchEntryDates();
 	}, []);
 
+	// This effect correctly uses the `displayedMonth` (a Date object) to fetch data.
+	useEffect(() => {
+		if (displayedMonth) {
+			fetchEntryDatesForMonth(displayedMonth);
+		}
+	}, [displayedMonth, fetchEntryDatesForMonth]);
+
 	return (
-		<DatePickerInput value={date} onChange={setDate} renderDay={dayRenderer} />
+		<DatePickerInput
+			value={date}
+			onChange={setDate}
+			onNextMonth={setDisplayedMonth}
+			onPreviousMonth={setDisplayedMonth}
+			onMonthSelect={setDisplayedMonth}
+			renderDay={dayRenderer}
+			rightSection={isLoading ? <Loader size="xs" /> : null}
+			label="Journal Date"
+			placeholder="Select a date"
+			valueFormat="YYYY-MM-DD" // Good practice to set the display format
+		/>
 	);
 };
 

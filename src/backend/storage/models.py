@@ -15,7 +15,7 @@ def create_db_and_tables():
 
 class Entry(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    date: datetime.date
+    date: datetime.date # TODO: MUST BE UNIQUE
     transcription: str
     journal_filename: str
 

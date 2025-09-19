@@ -6,8 +6,10 @@ from src.backend.journal_llm.rag import graph, config, md_store
 from src.backend.journal_llm.common import stt_model
 from langgraph.types import Command
 from pydub import AudioSegment
+from sqlmodel import select
 
 import tempfile
+import datetime
 
 from src.backend.storage.models import Entry, Task, create_db_and_tables
 
@@ -112,17 +114,25 @@ async def plan(n: int = 0):
     return {"plan": response["answer"]}
 
 @app.get("/api/entries_range")
-async def get_entries(start: int | None = None, end: int = 0):
-    files = md_store.get_files_in_range(start ,end)
+async def get_entries(session: SessionDep, limit: int = 0 , offset: int = 0):
     file_contents = []
 
-    for file in files:
-        with open(file, "r", encoding="utf-8") as f:
-            contents = f.read()
-            name = file.stem
-            file_contents.append({"date": name, "markdownContent": contents})
+    statement = select(Entry).order_by(Entry.date.desc()).limit(limit).offset(offset)
+    results = session.exec(statement)
+    entries = results.all()
+
+    for entry in entries:
+        content = md_store.get_file_content_from_name(entry.journal_filename)
+        file_contents.append(content)
 
     return file_contents
+
+@app.get("/api/entries_by_date_range")
+async def get_entries_by_date_range(session: SessionDep, start: datetime.date, end: datetime.date) -> list[datetime.date]:
+    statement = select(Entry).filter(Entry.date.between(start, end))
+    results = session.exec(statement)
+    entries = results.all()
+    return [ e.date for e in entries ]
 
 # needs a date here
 @app.get("/api/get_entry")
