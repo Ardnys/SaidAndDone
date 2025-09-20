@@ -1,11 +1,12 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from sqlmodel import Field
 
 
-class DailyThings(BaseModel):
+class DailyThingsBase(BaseModel):
     """
-    Daily activies of a person.
+    Base model for daily activities.
     """
 
     wokeUpAt: Optional[str] = Field(
@@ -37,3 +38,11 @@ class DailyThings(BaseModel):
     )
     cooking: Optional[str] = Field(default=None, description="Food prepared by person.")
     chores: Optional[str] = Field(default=None, description="Chores done by person.")
+
+
+class DailyThings(DailyThingsBase):
+    """
+    Daily activies of a person.
+    """
+
+    pass

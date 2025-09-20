@@ -1,5 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
+import { useState, useEffect, useCallback } from "react";
 import {
 	Title,
 	Text,
@@ -14,16 +13,21 @@ import {
 	Skeleton,
 	Center,
 	Stack,
+	Pagination,
 } from "@mantine/core";
 import { IconSearch, IconNotesOff } from "@tabler/icons-react";
+import { useDebouncedValue } from "@mantine/hooks";
 import axios from "axios";
+import { Link } from "react-router-dom";
 
 export type ApiEntry = {
+	id: string; // Add ID for a stable key
 	date: string;
-	markdownContent: string;
+	transcription: string;
 };
 
 export type JournalEntry = {
+	id: string;
 	date: Date;
 	markdownContent: string;
 };
@@ -32,62 +36,70 @@ export type JournalEntry = {
 const createSnippet = (markdown: string, length = 150) => {
 	const text = markdown
 		//eslint-disable-next-line
-		.replace(/(\#{1,6}\s)|(\*)|(\- \[.\])/g, "") // Remove headers, asterisks, and checklist syntax
-		.replace(/\s+/g, " ") // Collapse multiple whitespace
+		.replace(/(\#{1,6}\s)|(\*)|(\- \[.\])/g, "")
+		.replace(/\s+/g, " ")
 		.trim();
 
 	if (text.length <= length) return text;
 	return `${text.substring(0, text.lastIndexOf(" ", length))}...`;
 };
 
+const ITEMS_PER_PAGE = 9; // A good number for a 3-column grid
+
 function Entries() {
 	const [entries, setEntries] = useState<JournalEntry[]>([]);
 	const [loading, setLoading] = useState(true);
+
+	// State for server-side controls
 	const [searchTerm, setSearchTerm] = useState("");
 	const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
+	const [debouncedSearch] = useDebouncedValue(searchTerm, 500); // Debounce search input
 
-	const fetchJournalEntries = async () => {
+	// State for pagination
+	const [activePage, setActivePage] = useState(1);
+	const [totalPages, setTotalPages] = useState(0);
+
+	// Centralized data fetching function
+	const fetchJournalEntries = useCallback(async () => {
+		setLoading(true);
 		try {
-			// TODO: make this with pagination
-			const url = `/api/entries_range?limit=10&offset=0`;
+			const offset = (activePage - 1) * ITEMS_PER_PAGE;
 
-			const response = await axios.get<ApiEntry[]>(url);
+			const url = `/api/pagination`;
+			const params = {
+				limit: ITEMS_PER_PAGE,
+				offset: offset,
+				search: debouncedSearch,
+				sort: sortBy,
+			};
 
-			const convertedEntries: JournalEntry[] = response.data.map((item) => {
-				return {
-					date: new Date(item.date),
-					markdownContent: item.markdownContent,
-				};
-			});
+			const response = await axios.get<{
+				entries: ApiEntry[];
+				count: number;
+			}>(url, { params });
+
+			const { entries: apiEntries, count: totalCount } = response.data;
+
+			const convertedEntries: JournalEntry[] = apiEntries.map((item) => ({
+				id: item.id,
+				date: new Date(item.date),
+				markdownContent: item.transcription,
+			}));
 
 			setEntries(convertedEntries);
+			setTotalPages(Math.ceil(totalCount / ITEMS_PER_PAGE));
 		} catch (error) {
-			if (axios.isAxiosError(error)) {
-				console.error("Axios error fetching journal entries:", error.message);
-			} else {
-				console.error("An unexpected error occurred:", error);
-			}
+			console.error("Error fetching journal entries:", error);
+			// Optionally set an error state here
+		} finally {
+			setLoading(false);
 		}
-	};
+	}, [activePage, debouncedSearch, sortBy]);
 
+	// This useEffect is now the main driver for data fetching
 	useEffect(() => {
 		fetchJournalEntries();
-		setLoading(false);
-	}, []);
-
-	// Memoize the filtering and sorting logic for performance
-	const processedEntries = useMemo(() => {
-		return entries
-			.filter((entry) =>
-				entry.markdownContent.toLowerCase().includes(searchTerm.toLowerCase())
-			)
-			.sort((a, b) => {
-				if (sortBy === "newest") {
-					return b.date.getTime() - a.date.getTime();
-				}
-				return a.date.getTime() - b.date.getTime();
-			});
-	}, [entries, searchTerm, sortBy]);
+	}, [fetchJournalEntries]); // It re-runs whenever the memoized fetch function changes
 
 	return (
 		<Container size="lg">
@@ -99,11 +111,17 @@ function Entries() {
 						placeholder="Search entries..."
 						leftSection={<IconSearch size={14} />}
 						value={searchTerm}
-						onChange={(event) => setSearchTerm(event.currentTarget.value)}
+						onChange={(event) => {
+							setSearchTerm(event.currentTarget.value);
+							setActivePage(1); // Reset to first page on search
+						}}
 					/>
 					<Select
 						value={sortBy}
-						onChange={(value) => setSortBy(value as "newest" | "oldest")}
+						onChange={(value) => {
+							setSortBy(value as "newest" | "oldest");
+							setActivePage(1); // Reset to first page on sort change
+						}}
 						data={[
 							{ label: "Newest First", value: "newest" },
 							{ label: "Oldest First", value: "oldest" },
@@ -113,10 +131,10 @@ function Entries() {
 				</Group>
 			</Group>
 
-			{/* Loading State */}
+			{/* Loading State Skeleton */}
 			{loading && (
 				<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-					{Array(3)
+					{Array(ITEMS_PER_PAGE)
 						.fill(0)
 						.map((_, index) => (
 							<Card key={index} withBorder radius="md">
@@ -131,14 +149,14 @@ function Entries() {
 			)}
 
 			{/* Empty State */}
-			{!loading && processedEntries.length === 0 && (
+			{!loading && entries.length === 0 && (
 				<Card withBorder radius="md" p="xl" mt="xl">
 					<Center>
 						<Stack align="center">
 							<IconNotesOff size={48} color="gray" />
 							<Title order={3}>No Entries Found</Title>
 							<Text c="dimmed">
-								It looks like there are no entries that match your search.
+								Your journal is empty or no entries match your search.
 							</Text>
 						</Stack>
 					</Center>
@@ -146,48 +164,60 @@ function Entries() {
 			)}
 
 			{/* Display Entries */}
-			{!loading && processedEntries.length > 0 && (
-				<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-					{processedEntries.map((entry) => (
-						<Card
-							// TODO: get the proper ID when i have a db
-							key={uuidv4()}
-							shadow="sm"
-							padding="lg"
-							radius="md"
-							withBorder
-						>
-							<Group justify="space-between" mb="xs">
-								<Badge variant="light">
-									{entry.date.toLocaleDateString("en-US", {
-										year: "numeric",
-										month: "long",
-										day: "numeric",
-									})}
-								</Badge>
-							</Group>
-
-							<Text
-								size="sm"
-								c="dimmed"
-								lineClamp={4}
-								style={{ minHeight: "80px" }}
-							>
-								{createSnippet(entry.markdownContent)}
-							</Text>
-
-							<Button
-								variant="light"
-								color="blue"
-								fullWidth
-								mt="md"
+			{!loading && entries.length > 0 && (
+				<>
+					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+						{entries.map((entry) => (
+							<Card
+								key={entry.id}
+								shadow="sm"
+								padding="lg"
 								radius="md"
+								withBorder
 							>
-								Read More
-							</Button>
-						</Card>
-					))}
-				</SimpleGrid>
+								<Group justify="space-between" mb="xs">
+									<Badge variant="light">
+										{entry.date.toLocaleDateString("en-US", {
+											year: "numeric",
+											month: "long",
+											day: "numeric",
+										})}
+									</Badge>
+								</Group>
+								<Text
+									size="sm"
+									c="dimmed"
+									lineClamp={4}
+									style={{ minHeight: "80px" }}
+								>
+									{createSnippet(entry.markdownContent)}
+								</Text>
+								<Button
+									component={Link}
+									to={`${entry.id}`}
+									variant="light"
+									color="blue"
+									fullWidth
+									mt="md"
+									radius="md"
+								>
+									Read More
+								</Button>
+							</Card>
+						))}
+					</SimpleGrid>
+
+					{/* Pagination Component */}
+					{totalPages > 1 && (
+						<Group justify="center" mt="xl">
+							<Pagination
+								total={totalPages}
+								value={activePage}
+								onChange={setActivePage}
+							/>
+						</Group>
+					)}
+				</>
 			)}
 		</Container>
 	);

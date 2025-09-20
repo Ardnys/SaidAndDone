@@ -6,14 +6,12 @@ import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 
 const JournalDatePicker = () => {
-	// 1. The store's state and setter, which use `string | null`, can now be used directly.
 	const { date, setDate } = useJournalStore();
 
 	const [daysWithJournals, setDaysWithJournals] = useState<Set<string>>(
 		new Set()
 	);
 
-	// 2. The state for the calendar's VIEW still uses a Date object for reliable calculations.
 	const [displayedMonth, setDisplayedMonth] = useState(date ? date : null);
 
 	const [isLoading, setIsLoading] = useState(false);
@@ -62,7 +60,6 @@ const JournalDatePicker = () => {
 		}
 	}, []);
 
-	// This effect correctly uses the `displayedMonth` (a Date object) to fetch data.
 	useEffect(() => {
 		if (displayedMonth) {
 			fetchEntryDatesForMonth(displayedMonth);
@@ -80,7 +77,7 @@ const JournalDatePicker = () => {
 			rightSection={isLoading ? <Loader size="xs" /> : null}
 			label="Journal Date"
 			placeholder="Select a date"
-			valueFormat="YYYY-MM-DD" // Good practice to set the display format
+			valueFormat="YYYY-MM-DD"
 		/>
 	);
 };

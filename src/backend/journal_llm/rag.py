@@ -115,9 +115,9 @@ def save_journal_entry(state: State):
         "transcription": state["transcription"],
         "date": state["date"],
         "extracted_information": state["extracted_information"],
-        "content": state['content'],  
-        "filename": filename
-        }
+        "content": state["content"],
+        "filename": filename,
+    }
 
 
 def generate_today(state: State):

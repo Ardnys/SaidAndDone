@@ -4,6 +4,7 @@ import { JournalWorkflow } from "../components/record/JournalWorkflow.tsx";
 import Plan from "../components/plan/Plan.tsx";
 import Entries from "../components/journal/Entries.tsx";
 import Home from "../components/Home.tsx";
+import JournalViewPage from "../components/journal/JournalViewPage.tsx";
 
 export const router = createBrowserRouter([
 	{
@@ -26,9 +27,10 @@ export const router = createBrowserRouter([
 				path: "/journal",
 				element: <Entries />,
 			},
-			// {
-			// 	path: "/journal/:id"
-			// }
+			{
+				path: "/journal/:id",
+				element: <JournalViewPage />,
+			},
 			// {
 			// 	path: "/editor",
 			// }

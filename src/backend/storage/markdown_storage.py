@@ -55,6 +55,3 @@ class MarkdownStorage:
             contents = f.read()
             name = filename.stem
             return {"date": name, "markdownContent": contents}
-        
-
-

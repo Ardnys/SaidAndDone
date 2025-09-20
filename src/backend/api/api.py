@@ -1,21 +1,25 @@
-from fastapi import FastAPI, UploadFile, status
+from fastapi import FastAPI, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from src.backend.api.deps import SessionDep
-from src.backend.api.payloads import EntryPayload, GenerateEntryPayload
+from src.backend.api.payloads import (
+    EntryPayload,
+    GenerateEntryPayload,
+    PaginatedEntriesResponse,
+)
 from src.backend.journal_llm.rag import graph, config, md_store
 from src.backend.journal_llm.common import stt_model
 from langgraph.types import Command
 from pydub import AudioSegment
-from sqlmodel import select
+from sqlmodel import func, select
 
 import tempfile
 import datetime
 
-from src.backend.storage.models import Entry, Task, create_db_and_tables
+from src.backend.storage.models import Entry, EntryContents, Task, create_db_and_tables
 
 app = FastAPI()
 origins = [
-    "http://localhost:5173", # Your React app's origin
+    "http://localhost:5173",  # Your React app's origin
     "http://localhost:3000",
 ]
 
@@ -23,8 +27,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Allow all methods
-    allow_headers=["*"], # Allow all headers
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 create_db_and_tables()
@@ -38,7 +42,7 @@ async def root():
 @app.post("/api/transcribe/")
 async def transcribe(file: UploadFile):
     contents = await file.read()
-    
+
     # Use a temporary file to handle the uploaded data
     with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_audio_file:
         temp_audio_file.write(contents)
@@ -49,20 +53,23 @@ async def transcribe(file: UploadFile):
         audio_segment = AudioSegment.from_file(temp_audio_path)
 
         audio_segment = audio_segment.set_frame_rate(16000)
-        audio_segment = audio_segment.set_sample_width(2) # 2 bytes = 16 bits
+        audio_segment = audio_segment.set_sample_width(2)  # 2 bytes = 16 bits
         audio_segment = audio_segment.set_channels(1)
-        
+
         wav_output_path = temp_audio_path + ".wav"
         audio_segment.export(wav_output_path, format="wav")
 
-        result = stt_model.transcribe(wav_output_path) # fp16 doesn't work on CPU. set this to true in GPU
+        result = stt_model.transcribe(
+            wav_output_path
+        )  # fp16 doesn't work on CPU. set this to true in GPU
         transcription = result["text"]
 
     finally:
         # Clean up the temporary files
         import os
+
         os.remove(temp_audio_path)
-        if 'wav_output_path' in locals() and os.path.exists(wav_output_path):
+        if "wav_output_path" in locals() and os.path.exists(wav_output_path):
             os.remove(wav_output_path)
 
     return {"transcription": transcription}
@@ -86,13 +93,19 @@ async def generate_entry(payload: GenerateEntryPayload):
 @app.post("/api/save_entry", status_code=status.HTTP_201_CREATED)
 async def save_entry(session: SessionDep, payload: EntryPayload):
     # returns the whole state basically
-    response = graph.invoke(Command(resume={"edited_content": payload.contents}), config=config)
+    response = graph.invoke(
+        Command(resume={"edited_content": payload.contents}), config=config
+    )
     data_dict = response["extracted_information"].model_dump()
 
     # create entry
-    journal_entry = Entry(transcription=response["transcription"], date=response["date"], journal_filename=response["filename"])
+    journal_entry = Entry(
+        transcription=response["transcription"],
+        date=response["date"],
+        journal_filename=response["filename"],
+    )
 
-    # create Task from DailyThings 
+    # create Task from DailyThings
     task = Task.model_validate(data_dict)
 
     # connect it to entry (i think it should be other way around...?)
@@ -105,7 +118,6 @@ async def save_entry(session: SessionDep, payload: EntryPayload):
     print("Created task: ", task)
 
 
-
 @app.post("/api/plan")
 async def plan(n: int = 0):
     response = graph.invoke(
@@ -113,8 +125,9 @@ async def plan(n: int = 0):
     )
     return {"plan": response["answer"]}
 
+
 @app.get("/api/entries_range")
-async def get_entries(session: SessionDep, limit: int = 0 , offset: int = 0):
+async def get_entries(session: SessionDep, limit: int = 0, offset: int = 0):
     file_contents = []
 
     statement = select(Entry).order_by(Entry.date.desc()).limit(limit).offset(offset)
@@ -127,17 +140,61 @@ async def get_entries(session: SessionDep, limit: int = 0 , offset: int = 0):
 
     return file_contents
 
+
 @app.get("/api/entries_by_date_range")
-async def get_entries_by_date_range(session: SessionDep, start: datetime.date, end: datetime.date) -> list[datetime.date]:
+async def get_entries_by_date_range(
+    session: SessionDep, start: datetime.date, end: datetime.date
+) -> list[datetime.date]:
     statement = select(Entry).filter(Entry.date.between(start, end))
     results = session.exec(statement)
     entries = results.all()
-    return [ e.date for e in entries ]
+    return [e.date for e in entries]
 
-# needs a date here
+
+@app.get("/api/pagination", response_model=PaginatedEntriesResponse)
+async def get_paginated_journals(
+    session: SessionDep,
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    search: str = Query(""),
+    sort: str = Query("newest"),
+):
+    search_pattern = "%{}%".format(search)
+
+    # first get the count
+    count_statement = select(func.count(Entry.id)).filter(
+        Entry.transcription.like(search_pattern)
+    )
+
+    total_count = session.exec(count_statement).one()
+
+    # then get the data
+    order = Entry.date.desc() if sort == "newest" else Entry.date.asc()
+    statement = (
+        select(Entry)
+        .filter(Entry.transcription.like(search_pattern))
+        .order_by(order)
+        .limit(limit)
+        .offset(offset)
+    )
+    results = session.exec(statement)
+    entries = results.all()
+
+    return PaginatedEntriesResponse(count=total_count, entries=entries)
+
+
 @app.get("/api/get_entry")
-async def get_entry():
-    pass
+async def get_entry(session: SessionDep, id: int) -> EntryContents:
+    statement = select(Entry).filter(Entry.id == id)
+
+    entry = session.exec(statement).one()
+    print(entry)
+    res = md_store.get_file_content_from_name(entry.journal_filename)
+    content = res["markdownContent"]
+
+    entry_contents = EntryContents(**entry.model_dump(), journal_contents=content)
+
+    return entry_contents
 
 
 @app.post("/api/update_entry")
